@@ -72,41 +72,30 @@ def call_openai(
     """
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        print("\033[93m[System Warning] OPENAI_API_KEY environment variable not set. Falling back to Gemini.\033[0m")
-        return call_gemini(
-            prompt=prompt,
-            temperature=temperature,
-            top_p=top_p,
-            max_tokens=max_tokens,
-        )
+        print("\033[93m[System Warning] OPENAI_API_KEY environment variable not set. Running in dummy mode.\033[0m")
+        api_key = "mock-key"
+    # client = OpenAI(api_key=api_key)
+    client = OpenAI(
+        api_key=api_key,
+        base_url="https://openrouter.ai/api/v1"
+    )
 
-    try:
-        client = OpenAI(api_key=api_key)
+    start_time = time.time()
+    response = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=temperature,
+        top_p=top_p,
+        max_tokens=max_tokens,
+    )
+    latency = time.time() - start_time
 
-        start_time = time.time()
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=temperature,
-            top_p=top_p,
-            max_tokens=max_tokens,
-        )
-        latency = time.time() - start_time
-
-        response_text = response.choices[0].message.content
-        usage = {
-            "input_tokens": response.usage.prompt_tokens,
-            "output_tokens": response.usage.completion_tokens,
-        }
-        return response_text, latency, usage
-    except Exception as exc:
-        print(f"\033[93m[System Warning] OpenAI call failed ({exc}). Falling back to Gemini.\033[0m")
-        return call_gemini(
-            prompt=prompt,
-            temperature=temperature,
-            top_p=top_p,
-            max_tokens=max_tokens,
-        )
+    response_text = response.choices[0].message.content
+    usage = {
+        "input_tokens": response.usage.prompt_tokens,
+        "output_tokens": response.usage.completion_tokens,
+    }
+    return response_text, latency, usage
 
 
 # ---------------------------------------------------------------------------
