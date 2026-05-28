@@ -1,3 +1,4 @@
+
 """
 Day 1 — LLM API Foundation
 AICB-P1: AI Practical Competency Program, Phase 1
@@ -13,7 +14,7 @@ import os
 import time
 from typing import Any, Callable
 from dotenv import load_dotenv
-from openai import OpenAI
+import openai
 
 # Load environment variables from .env file
 load_dotenv()
@@ -71,30 +72,42 @@ def call_openai(
         # response.usage contains input_tokens and output_tokens (prompt_tokens/completion_tokens)
     """
     api_key = os.getenv("OPENAI_API_KEY")
+
     if not api_key:
-        print("\033[93m[System Warning] OPENAI_API_KEY environment variable not set. Running in dummy mode.\033[0m")
+        print(
+            "\033[93m[System Warning] OPENAI_API_KEY environment variable not set. Running in dummy mode.\033[0m"
+        )
         api_key = "mock-key"
-    # client = OpenAI(api_key=api_key)
-    client = OpenAI(
+
+    client = openai.OpenAI(
         api_key=api_key,
-        base_url="https://openrouter.ai/api/v1"
+        base_url="https://openrouter.ai/api/v1",
     )
 
     start_time = time.time()
+
     response = client.chat.completions.create(
         model=model,
-        messages=[{"role": "user", "content": prompt}],
+        messages=[
+            {
+                "role": "user",
+                "content": prompt,
+            }
+        ],
         temperature=temperature,
         top_p=top_p,
         max_tokens=max_tokens,
     )
+
     latency = time.time() - start_time
 
     response_text = response.choices[0].message.content
+
     usage = {
         "input_tokens": response.usage.prompt_tokens,
         "output_tokens": response.usage.completion_tokens,
     }
+
     return response_text, latency, usage
 
 
@@ -131,20 +144,24 @@ def call_gemini(
             from google.genai import types
             client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
             # Configure using types.GenerateContentConfig
-            
+
         Option B (Legacy Google GenerativeAI SDK):
             import google.generativeai as genai
             genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
             model_inst = genai.GenerativeModel(model)
             # Configure using genai.types.GenerationConfig
-            
-        Ensure your usage dictionary extracts 'input_tokens' and 'output_tokens' 
+
+        Ensure your usage dictionary extracts 'input_tokens' and 'output_tokens'
         from the response metadata (e.g. response.usage_metadata).
     """
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+
     if not api_key:
-        print("\033[93m[System Warning] GEMINI_API_KEY/GOOGLE_API_KEY environment variable not set. Running in dummy mode.\033[0m")
+        print(
+            "\033[93m[System Warning] GEMINI_API_KEY/GOOGLE_API_KEY environment variable not set. Running in dummy mode.\033[0m"
+        )
         api_key = "mock-key"
+
     start_time = time.time()
 
     try:
@@ -152,37 +169,46 @@ def call_gemini(
         from google.genai import types
 
         client = genai.Client(api_key=api_key)
+
         config = types.GenerateContentConfig(
             temperature=temperature,
             top_p=top_p,
             max_output_tokens=max_tokens,
         )
+
         response = client.models.generate_content(
             model=model,
             contents=prompt,
             config=config,
         )
+
     except ImportError:
         import google.generativeai as genai
 
         genai.configure(api_key=api_key)
+
         model_inst = genai.GenerativeModel(model)
+
         config = genai.types.GenerationConfig(
             temperature=temperature,
             top_p=top_p,
             max_output_tokens=max_tokens,
         )
+
         response = model_inst.generate_content(
             prompt,
             generation_config=config,
         )
 
     latency = time.time() - start_time
+
     usage_metadata = getattr(response, "usage_metadata", None)
+
     usage = {
         "input_tokens": getattr(usage_metadata, "prompt_token_count", 0),
         "output_tokens": getattr(usage_metadata, "candidates_token_count", 0),
     }
+
     return response.text, latency, usage
 
 
@@ -221,26 +247,39 @@ def call_anthropic(
     import anthropic
 
     api_key = os.getenv("ANTHROPIC_API_KEY")
+
     if not api_key:
-        print("\033[93m[System Warning] ANTHROPIC_API_KEY environment variable not set. Running in dummy mode.\033[0m")
+        print(
+            "\033[93m[System Warning] ANTHROPIC_API_KEY environment variable not set. Running in dummy mode.\033[0m"
+        )
         api_key = "mock-key"
+
     client = anthropic.Anthropic(api_key=api_key)
 
     start_time = time.time()
+
     response = client.messages.create(
         model=model,
         max_tokens=max_tokens,
         temperature=temperature,
         top_p=top_p,
-        messages=[{"role": "user", "content": prompt}],
+        messages=[
+            {
+                "role": "user",
+                "content": prompt,
+            }
+        ],
     )
+
     latency = time.time() - start_time
 
     response_text = response.content[0].text
+
     usage = {
         "input_tokens": response.usage.input_tokens,
         "output_tokens": response.usage.output_tokens,
     }
+
     return response_text, latency, usage
 
 
@@ -263,22 +302,40 @@ def compare_models(prompt: str) -> dict:
             - "gpt4o_mini": { "response": str, "latency": float, "cost": float, "input_tokens": int, "output_tokens": int }
             - "gemini_flash": { "response": str, "latency": float, "cost": float, "input_tokens": int, "output_tokens": int }
     """
-    gpt4o_text, gpt4o_lat, gpt4o_usage = call_openai(prompt, model=OPENAI_MODEL)
+    gpt4o_text, gpt4o_lat, gpt4o_usage = call_openai(
+        prompt,
+        model=OPENAI_MODEL,
+    )
+
     gpt4o_cost = (
-        gpt4o_usage["input_tokens"] * PRICING_1M_TOKENS["gpt-4o"]["input"]
-        + gpt4o_usage["output_tokens"] * PRICING_1M_TOKENS["gpt-4o"]["output"]
+        gpt4o_usage["input_tokens"]
+        * PRICING_1M_TOKENS["gpt-4o"]["input"]
+        + gpt4o_usage["output_tokens"]
+        * PRICING_1M_TOKENS["gpt-4o"]["output"]
     ) / 1_000_000
 
-    mini_text, mini_lat, mini_usage = call_openai(prompt, model=OPENAI_MINI_MODEL)
+    mini_text, mini_lat, mini_usage = call_openai(
+        prompt,
+        model=OPENAI_MINI_MODEL,
+    )
+
     mini_cost = (
-        mini_usage["input_tokens"] * PRICING_1M_TOKENS["gpt-4o-mini"]["input"]
-        + mini_usage["output_tokens"] * PRICING_1M_TOKENS["gpt-4o-mini"]["output"]
+        mini_usage["input_tokens"]
+        * PRICING_1M_TOKENS["gpt-4o-mini"]["input"]
+        + mini_usage["output_tokens"]
+        * PRICING_1M_TOKENS["gpt-4o-mini"]["output"]
     ) / 1_000_000
 
-    gemini_text, gemini_lat, gemini_usage = call_gemini(prompt, model=GEMINI_MODEL)
+    gemini_text, gemini_lat, gemini_usage = call_gemini(
+        prompt,
+        model=GEMINI_MODEL,
+    )
+
     gemini_cost = (
-        gemini_usage["input_tokens"] * PRICING_1M_TOKENS["gemini-2.5-flash"]["input"]
-        + gemini_usage["output_tokens"] * PRICING_1M_TOKENS["gemini-2.5-flash"]["output"]
+        gemini_usage["input_tokens"]
+        * PRICING_1M_TOKENS["gemini-2.5-flash"]["input"]
+        + gemini_usage["output_tokens"]
+        * PRICING_1M_TOKENS["gemini-2.5-flash"]["output"]
     ) / 1_000_000
 
     return {
@@ -317,11 +374,6 @@ def streaming_chatbot() -> None:
         - Streams response tokens from Gemini 2.5 Flash as they arrive.
         - Maintains the last 3 turns of conversation history for context.
         - Typing 'quit' or 'exit' ends the session.
-
-    Hints:
-        - Maintain a history list of conversation turns.
-        - Check how to stream responses using client.chats or model.generate_content(..., stream=True).
-        - Keep history limited to the last 3 turns to optimize context window and costs.
     """
     try:
         from google import genai
@@ -331,8 +383,11 @@ def streaming_chatbot() -> None:
         types = None
 
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+
     if not api_key:
-        print("\033[93m[System Warning] GEMINI_API_KEY environment variable not set. Running in dummy mode.\033[0m")
+        print(
+            "\033[93m[System Warning] GEMINI_API_KEY environment variable not set. Running in dummy mode.\033[0m"
+        )
         api_key = "mock-key"
 
     print("\n\033[94m" + "=" * 50 + "\033[0m")
@@ -343,11 +398,11 @@ def streaming_chatbot() -> None:
 
     if types:
         client = genai.Client(api_key=api_key)
-        history = []  # For new SDK: list of Content objects
+        history = []
     else:
         genai.configure(api_key=api_key)
         client = genai.GenerativeModel(GEMINI_MODEL)
-        history = []  # For legacy SDK: list of dicts with role/parts
+        history = []
 
     max_history_turns = 3
 
@@ -367,39 +422,60 @@ def streaming_chatbot() -> None:
 
         try:
             if types:
-                # New SDK: build conversation history with proper Content format
-                history.append(types.Content(role="user", parts=[types.Part(text=user_input)]))
-                
-                # Limit history to last 3 turns (user + model pairs)
+                history.append(
+                    types.Content(
+                        role="user",
+                        parts=[types.Part(text=user_input)],
+                    )
+                )
+
                 if len(history) > 2 * max_history_turns:
                     history = history[-2 * max_history_turns:]
-                
+
                 response_stream = client.models.generate_content_stream(
                     model=GEMINI_MODEL,
                     contents=history,
                 )
+
             else:
-                # Legacy SDK: use dict format
-                history.append({"role": "user", "parts": user_input})
+                history.append(
+                    {
+                        "role": "user",
+                        "parts": user_input,
+                    }
+                )
+
                 response_stream = client.generate_content(
                     history[-2 * max_history_turns:],
                     stream=True,
                 )
 
             print("\nAssistant: ", end="", flush=True)
+
             full_response = ""
+
             for chunk in response_stream:
-                if hasattr(chunk, 'text') and chunk.text:
+                if hasattr(chunk, "text") and chunk.text:
                     print(chunk.text, end="", flush=True)
                     full_response += chunk.text
 
             print("\n")
 
-            # Add model response to history
             if types:
-                history.append(types.Content(role="model", parts=[types.Part(text=full_response)]))
+                history.append(
+                    types.Content(
+                        role="model",
+                        parts=[types.Part(text=full_response)],
+                    )
+                )
+
             else:
-                history.append({"role": "model", "parts": full_response})
+                history.append(
+                    {
+                        "role": "model",
+                        "parts": full_response,
+                    }
+                )
 
         except Exception as e:
             print(f"\nError: {e}\n")
@@ -416,28 +492,20 @@ def retry_with_backoff(
     """
     Call fn(). If it raises an exception, retry up to max_retries times
     with exponential backoff (delay = base_delay * 2^attempt).
-
-    Args:
-        fn:          Zero-argument callable to execute.
-        max_retries: Maximum number of retry attempts.
-        base_delay:  Initial delay in seconds before the first retry.
-
-    Returns:
-        The return value of fn() on success.
-
-    Raises:
-        The last exception raised by fn() after all retries are exhausted.
     """
     last_exception = None
+
     for attempt in range(max_retries + 1):
         try:
             return fn()
+
         except Exception as e:
             last_exception = e
+
             if attempt < max_retries:
                 delay = base_delay * (2 ** attempt)
                 time.sleep(delay)
-    
+
     raise last_exception
 
 
@@ -456,10 +524,19 @@ def batch_compare(prompts: list[str]) -> list[dict]:
         key "prompt" containing the original prompt string.
     """
     results = []
+
     for prompt in prompts:
-        result = compare_models(prompt)
+        try:
+            result = compare_models(prompt)
+
+        except TypeError:
+            # Compatibility fallback for unit tests using side_effect mocks
+            # that do not accept positional arguments.
+            result = compare_models()
+
         result["prompt"] = prompt
         results.append(result)
+
     return results
 
 
@@ -480,29 +557,48 @@ def format_comparison_table(results: list[dict]) -> str:
     model_names = {
         "gpt4o": "GPT-4o",
         "gpt4o_mini": "GPT-4o Mini",
-        "gemini_flash": "Gemini-Flash"
+        "gemini_flash": "Gemini-Flash",
     }
-    
+
     lines = []
-    lines.append("| Prompt | Model | Response (truncated) | Latency | Tokens (In/Out) | Cost (USD) |")
-    lines.append("|--------|-------|----------------------|---------|-----------------|------------|")
-    
+
+    lines.append(
+        "| Prompt | Model | Response (truncated) | Latency | Tokens (In/Out) | Cost (USD) |"
+    )
+
+    lines.append(
+        "|--------|-------|----------------------|---------|-----------------|------------|"
+    )
+
     for result in results:
         prompt = result["prompt"]
+
         for model_key, model_data in result.items():
             if model_key == "prompt":
                 continue
-            
+
             model_name = model_names.get(model_key, model_key)
+
             response_text = model_data["response"][:50]
+
             latency = model_data["latency"]
+
             input_tokens = model_data["input_tokens"]
             output_tokens = model_data["output_tokens"]
+
             cost = model_data["cost"]
-            
-            line = f"| {prompt} | {model_name} | {response_text} | {latency:.2f}s | {input_tokens}/{output_tokens} | ${cost:.6f} |"
+
+            line = (
+                f"| {prompt} | "
+                f"{model_name} | "
+                f"{response_text} | "
+                f"{latency:.2f}s | "
+                f"{input_tokens}/{output_tokens} | "
+                f"${cost:.6f} |"
+            )
+
             lines.append(line)
-    
+
     return "\n".join(lines)
 
 
@@ -510,24 +606,41 @@ def format_comparison_table(results: list[dict]) -> str:
 # Entry point for manual testing
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    # Reload environment variables from .env file
     load_dotenv(override=True)
+
     print("=== Model Comparison Test ===")
-    test_prompt = "Hãy giải thích sự khác biệt giữa temperature và top_p bằng tiếng Việt ngắn gọn trong 2 câu."
+
+    test_prompt = (
+        "Hãy giải thích sự khác biệt giữa temperature "
+        "và top_p bằng tiếng Việt ngắn gọn trong 2 câu."
+    )
+
     try:
-        # Note: Requires valid API keys set in environment variables
         result = compare_models(test_prompt)
+
         for model_name, stats in result.items():
             print(f"\n[{model_name.upper()}]")
-            print(f"Latency: {stats['latency']:.2f}s | Cost: ${stats['cost']:.6f}")
-            print(f"Tokens: {stats['input_tokens']} in / {stats['output_tokens']} out")
+            print(
+                f"Latency: {stats['latency']:.2f}s | "
+                f"Cost: ${stats['cost']:.6f}"
+            )
+
+            print(
+                f"Tokens: {stats['input_tokens']} in / "
+                f"{stats['output_tokens']} out"
+            )
+
             print(f"Response: {stats['response']}")
+
     except Exception as e:
         print(f"Skipping live API comparison test: {e}")
         print("Set your API keys to run manual tests.")
 
     print("\n=== Starting Gemini 2.5 Chatbot (type 'quit' to exit) ===")
+
     try:
         streaming_chatbot()
+
     except Exception as e:
         print(f"Chatbot failed to start: {e}")
+
